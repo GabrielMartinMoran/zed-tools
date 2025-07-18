@@ -1,0 +1,17 @@
+{
+  "name": "search-python-fn-implementation",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/inquirer": "^9.0.8",
+    "cli-highlight": "^2.1.11",
+    "inquirer": "^12.7.0"
+  }
+}
