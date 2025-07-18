@@ -1,15 +1,23 @@
-# search-python-fn-implementation
+# zed-tools
 
-To install dependencies:
+A collection of tools for Zed.
+
+## Getting Started
+
+To run this project, you'll need to have [bun](https://bun.sh) installed.
+
+### Installing dependencies
+
+To install dependencies, run:
 
 ```bash
 bun install
 ```
 
-To run:
+### Running the project
+
+To run the cli, execute:
 
 ```bash
-bun run index.ts
+./zed-tools
 ```
-
-This project was created using `bun init` in bun v1.2.10. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
