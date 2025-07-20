@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
-const args = Bun.argv.slice(2);
-
 import { routeCommand } from './command-router';
+
+const args = Bun.argv.slice(2);
 
 try {
     const args = process.argv.slice(2);

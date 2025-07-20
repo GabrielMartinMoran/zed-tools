@@ -10,9 +10,11 @@
         "typescript": "^5"
     },
     "dependencies": {
+        "@types/blessed": "^0.1.25",
         "@types/inquirer": "^9.0.8",
         "bun-style": "^0.3.2",
         "cli-highlight": "^2.1.11",
+        "clipboardy": "^4.0.0",
         "inquirer": "^12.7.0",
         "neo-blessed": "^0.2.0"
     }

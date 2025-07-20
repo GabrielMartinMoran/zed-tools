@@ -1,6 +1,6 @@
 import { ArgParser } from './arg-parser';
 import { runCommand } from './command-runner';
-import { buildPytestResultsExplorerCommand } from './commands/pytest-results-explorer';
+import { buildPytestResultsExplorerCommand } from './commands/pytests-results-explorer';
 import { buildSearchPyFnDeclarationsCommand } from './commands/search-py-fn-implementation';
 import { CONFIG } from './config';
 import { style } from 'bun-style';

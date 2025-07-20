@@ -79,5 +79,6 @@ export const buildSearchPyFnDeclarationsCommand = (): Command => {
     return {
         onExecute,
         onAbort,
+        abortOnESC: true,
     };
 };
