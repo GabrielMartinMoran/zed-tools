@@ -13,6 +13,7 @@
         "@types/inquirer": "^9.0.8",
         "bun-style": "^0.3.2",
         "cli-highlight": "^2.1.11",
-        "inquirer": "^12.7.0"
+        "inquirer": "^12.7.0",
+        "neo-blessed": "^0.2.0"
     }
 }

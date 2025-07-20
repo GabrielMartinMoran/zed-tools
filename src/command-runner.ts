@@ -20,5 +20,5 @@ export const runCommand = async (params: any, command: Command) => {
     });
 
     await command.onExecute(params);
-    process.exit(0);
+    //process.exit(0);
 };

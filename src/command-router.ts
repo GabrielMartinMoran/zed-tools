@@ -1,5 +1,6 @@
 import { ArgParser } from './arg-parser';
 import { runCommand } from './command-runner';
+import { buildPytestResultsExplorerCommand } from './commands/pytest-results-explorer';
 import { buildSearchPyFnDeclarationsCommand } from './commands/search-py-fn-implementation';
 import { CONFIG } from './config';
 import { style } from 'bun-style';
@@ -13,6 +14,10 @@ const ARG_PARSERS = {
     SEARCH_PY_FN_DECLARATIONS: new ArgParser(
         ['search-py-fn-declarations|spfd', param('functionName')],
         'Searches for Python function declarations'
+    ),
+    PYTEST_RESULTS_EXPLORER: new ArgParser(
+        ['pytest-results-explorer|pre', param('reportPath')],
+        'Explores pytest results from a JSON report file'
     ),
 };
 
@@ -32,6 +37,11 @@ export const routeCommand = (args: string[]) => {
     if (ARG_PARSERS.SEARCH_PY_FN_DECLARATIONS.matches(args)) {
         const params = ARG_PARSERS.SEARCH_PY_FN_DECLARATIONS.getParams(args);
         return runCommand(params, buildSearchPyFnDeclarationsCommand());
+    }
+
+    if (ARG_PARSERS.PYTEST_RESULTS_EXPLORER.matches(args)) {
+        const params = ARG_PARSERS.PYTEST_RESULTS_EXPLORER.getParams(args);
+        return runCommand(params, buildPytestResultsExplorerCommand());
     }
 
     throw new Error(
