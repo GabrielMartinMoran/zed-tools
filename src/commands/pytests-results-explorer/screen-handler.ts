@@ -14,7 +14,6 @@ import path from 'path';
 
 import { $ } from 'bun';
 import { extractDiffStrings, type Diff } from './diff-extractor';
-import { left, right } from 'inquirer/lib/utils/readline';
 
 interface TestList extends Widgets.ListElement {
     selected: number;
