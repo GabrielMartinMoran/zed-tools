@@ -13,6 +13,8 @@ import os from 'os';
 import path from 'path';
 
 import { $ } from 'bun';
+import { extractDiffStrings, type Diff } from './diff-extractor';
+import { left, right } from 'inquirer/lib/utils/readline';
 
 interface TestList extends Widgets.ListElement {
     selected: number;
@@ -34,10 +36,10 @@ const WINDOW_TITLES = {
 };
 
 const STATUS_BAR_MESSAGES = {
-    ON_LIST: `${key(`[${WINDOW_TITLES.TEST_NAVIGATOR}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('Enter')}/${key('→')}: Focus Tesst Detail | ${key('f')}/${key('p')}/${key('s')}: Jump to Next Failed/Passed/Skipped | ${key('Ctrl+G')}: Go to Test Definition | ${key('Esc')}/${key('q')}: Exit`,
-    ON_DETAIL: `${key(`[${WINDOW_TITLES.TEST_DETAILS}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('PgUp')}/${key('PgDn')}: Jump Pages | ${key('Ctrl+K')}: Copy Options | ${key('Ctrl+O')}: Open Options | ${key('Esc')}/${key('←')}: Focus List | ${key('q')}: Exit`,
-    ON_COPY_MODE: `${key('[Copy Mode]')} ${key('Ctrl+O')}: Copy stdout | ${key('Ctrl+E')}: Copy stderr | ${key('Ctrl+B')}: Copy traceback | ${key('Esc')}: Exit Copy Mode`,
-    ON_OPEN_MODE: `${key('[Open Mode]')} ${key('Ctrl+O')}: Open stdout | ${key('Ctrl+E')}: Open stderr | ${key('Ctrl+B')}: Open traceback | ${key('Esc')}: Exit Open Mode`,
+    ON_LIST: `${key(`[${WINDOW_TITLES.TEST_NAVIGATOR}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('Enter')}/${key('→')}: Focus Test Details | ${key('F')}/${key('P')}/${key('S')}: Jump to Next Failed/Passed/Skipped | ${key('Ctrl+G')}: Go to Test Definition | ${key('Esc')}/${key('Q')}: Exit`,
+    ON_DETAIL: `${key(`[${WINDOW_TITLES.TEST_DETAILS}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('PgUp')}/${key('PgDn')}: Fast Navigate | ${key('Ctrl+K')}: Copy Options | ${key('Ctrl+O')}: Open Options | ${key('Esc')}/${key('←')}: Focus List | ${key('Q')}: Exit`,
+    ON_COPY_MODE: `${key('[Copy Mode]')} ${key('Ctrl+O')}: Copy STDOUT | ${key('Ctrl+E')}: Copy STDERR | ${key('Ctrl+B')}: Copy Traceback | ${key('Esc')}: Exit Copy Mode`,
+    ON_OPEN_MODE: `${key('[Open Mode]')} ${key('Ctrl+D')}: Open Diff | ${key('Ctrl+O')}: Open STDOUT | ${key('Ctrl+E')}: Open STDERR | ${key('Ctrl+B')}: Open Traceback | ${key('Esc')}: Exit Open Mode`,
 };
 
 const COLORS = {
@@ -354,32 +356,54 @@ export const setUpEvents = (uiComponents: UIComponents) => {
             return;
         }
 
-        let textToOpen: string | undefined;
+        let dataToOpen: string | Diff | undefined = undefined;
         let source = '';
 
         // Comprobar la segunda tecla de la secuencia
         if (key.full === 'C-o') {
-            textToOpen = currentSelectedTest?.call?.stdout;
+            dataToOpen = currentSelectedTest?.call?.stdout;
             source = 'STDOUT';
         } else if (key.full === 'C-e') {
-            textToOpen = currentSelectedTest?.call?.stderr;
+            dataToOpen = currentSelectedTest?.call?.stderr;
             source = 'STDERR';
         } else if (key.full === 'C-b') {
             const longrepr = currentSelectedTest?.call?.longrepr;
             if (longrepr) {
-                textToOpen = typeof longrepr === 'string' ? longrepr : longrepr.reprcrash.message;
+                dataToOpen = typeof longrepr === 'string' ? longrepr : longrepr.reprcrash.message;
             }
             source = 'Traceback';
+        } else if (key.full === 'C-d') {
+            if (!currentSelectedTest?.call?.longrepr) return;
+            const diff = extractDiffStrings(currentSelectedTest?.call?.longrepr);
+            if (!diff) return;
+            dataToOpen = diff;
+            source = 'Diff';
         }
 
         // Si se encontró un atajo válido, copiar el texto
-        if (source && textToOpen) {
+        if (source && dataToOpen) {
             const tempDir = os.tmpdir();
-            const uniqueFileName = `test-output-${randomUUID()}.txt`;
-            const tempFilePath = path.join(tempDir, uniqueFileName);
-            fs.writeFileSync(tempFilePath, textToOpen);
-            await $`zeditor  --add ${tempFilePath}`.quiet();
-            statusBar.setContent(chalk.green.bold(`🚀 ${source} opened in editor!`));
+            const id = randomUUID();
+            if (source === 'Diff') {
+                if (typeof dataToOpen !== 'object' || !dataToOpen.left || !dataToOpen.right) {
+                    statusBar.setContent(chalk.red('Invalid diff data to open.'));
+                    return;
+                }
+                const leftDiffFileName = `test-diff-left-${id}`;
+                const leftDiffFilePath = path.join(tempDir, leftDiffFileName);
+                fs.writeFileSync(leftDiffFilePath, dataToOpen.left);
+                const rightDiffFileName = `test-diff-right-${id}`;
+                const rightDiffFilePath = path.join(tempDir, rightDiffFileName);
+                fs.writeFileSync(rightDiffFilePath, dataToOpen.right);
+                await $`zeditor --diff ${leftDiffFilePath} ${rightDiffFilePath}`.quiet();
+                statusBar.setContent(chalk.green.bold(`🚀 ${source} opened in editor!`));
+            } else {
+                const uniqueFileName = `test-output-${id}`;
+                const tempFilePath = path.join(tempDir, uniqueFileName);
+                fs.writeFileSync(tempFilePath, dataToOpen as string);
+                await $`zeditor --add ${tempFilePath}`.quiet();
+                statusBar.setContent(chalk.green.bold(`🚀 ${source} opened in editor!`));
+            }
         } else if (source) {
             statusBar.setContent(chalk.yellow(`No ${source} to open for this test.`));
         } else {
