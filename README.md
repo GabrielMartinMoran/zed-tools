@@ -38,6 +38,9 @@ To configure Zed to use the tools, you'll need to add the following to your `tas
     "cwd": "${ZED_WORKTREE_ROOT}",
     "use_new_terminal": false,
     "hide": "always",
+    "shell": {
+      "program": "sh"
+    }
 }
 ```
 

@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 import inquirer from 'inquirer';
 import { $ } from 'bun';
 import highlight from 'cli-highlight';
@@ -11,19 +9,27 @@ export const buildSearchPyFnDeclarationsCommand = (): Command => {
 
     const onExecute = async (params: any) => {
         const { functionName } = params;
+
+        readline.emitKeypressEvents(process.stdin);
+        if (process.stdin.isTTY) {
+            process.stdin.setRawMode(true);
+        }
+
+        const noDeclarationsFoundMsg = `🤷 No declarations found for "${functionName}". Maybe the file is listed in the .gitignore.`;
+
         const rgCommand = $`rg -t py --line-number --regexp "def ${functionName}\\(" .`.quiet();
         // .nothrow() prevents Bun from exiting if rg fails (e.g., no matches)
         const { stdout, exitCode } = await rgCommand.nothrow();
 
         if (exitCode !== 0 && stdout.length === 0) {
-            console.log(`🤷 No results found for "def ${functionName}(".`);
+            console.log(noDeclarationsFoundMsg);
             return;
         }
 
         const outputLines = stdout.toString().trim().split('\n');
 
         if (outputLines.length === 0 || outputLines[0] === '') {
-            console.log(`🤷 No results found for "def ${functionName}(".`);
+            console.log(noDeclarationsFoundMsg);
             return;
         }
 
@@ -73,5 +79,6 @@ export const buildSearchPyFnDeclarationsCommand = (): Command => {
     return {
         onExecute,
         onAbort,
+        abortOnESC: true,
     };
 };
