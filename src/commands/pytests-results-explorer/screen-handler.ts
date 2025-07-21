@@ -5,7 +5,7 @@ import * as blessed from 'neo-blessed';
 import type { Widgets } from 'blessed';
 import clipboard from 'clipboardy';
 import { getTests, registerTestsChangeObserver } from './tests-state';
-import type { Test } from './types';
+import { TEST_OUTCOMES, type Test } from './types';
 
 import { randomUUID } from 'crypto';
 import fs from 'fs';
@@ -26,13 +26,31 @@ interface UIComponents {
     statusBar: Widgets.BoxElement;
 }
 
-const DEFAULT_NAV_MESSAGE =
-    'Arrows: Navigate | Enter/→: Focus Detail | Esc/←: Focus Nav | F/P/S: Find Failed/Passed/Skipped | Ctrl+K: Copy Options (in Detail) | Ctrl+O: Open Options (in Detail) | Esc (in Nav)/q: Quit';
+const key = (keyName: string) => chalk.bold(keyName);
+
+const WINDOW_TITLES = {
+    TEST_NAVIGATOR: 'Test Navigator',
+    TEST_DETAILS: 'Test Details',
+};
+
+const STATUS_BAR_MESSAGES = {
+    ON_LIST: `${key(`[${WINDOW_TITLES.TEST_NAVIGATOR}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('Enter')}/${key('→')}: Focus Tesst Detail | ${key('f')}/${key('p')}/${key('s')}: Jump to Next Failed/Passed/Skipped | ${key('Ctrl+G')}: Go to Test Definition | ${key('Esc')}/${key('q')}: Exit`,
+    ON_DETAIL: `${key(`[${WINDOW_TITLES.TEST_DETAILS}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('PgUp')}/${key('PgDn')}: Jump Pages | ${key('Ctrl+K')}: Copy Options | ${key('Ctrl+O')}: Open Options | ${key('Esc')}/${key('←')}: Focus List | ${key('q')}: Exit`,
+    ON_COPY_MODE: `${key('[Copy Mode]')} ${key('Ctrl+O')}: Copy stdout | ${key('Ctrl+E')}: Copy stderr | ${key('Ctrl+B')}: Copy traceback | ${key('Esc')}: Exit Copy Mode`,
+    ON_OPEN_MODE: `${key('[Open Mode]')} ${key('Ctrl+O')}: Open stdout | ${key('Ctrl+E')}: Open stderr | ${key('Ctrl+B')}: Open traceback | ${key('Esc')}: Exit Open Mode`,
+};
 
 const COLORS = {
     FOCUS: 'cyan',
     BLUR: 'gray',
     TITLE_TEXT: 'white',
+};
+
+const DETAIL_SECTION_TITLES = {
+    TRACEBACK_AND_DIFF: '[ TRACEBACK & DIFF ]',
+    STDOUT: '[ STDOUT ]',
+    STDERR: '[ STDERR ]',
+    SKIP_REASON: '[ SKIP REASON ]',
 };
 
 const BOX_WIDTH_CHARS_CORRECTION_OFFSET = 4;
@@ -57,7 +75,7 @@ export const renderUI = () => {
             item: { hover: { bg: 'blue' } },
             label: { fg: COLORS.BLUR },
         },
-        label: ' Test Navigator ',
+        label: ` ${WINDOW_TITLES.TEST_NAVIGATOR} `,
         keys: true,
         vi: true,
         mouse: true,
@@ -70,7 +88,7 @@ export const renderUI = () => {
         height: '100%',
         left: '40%',
         border: { type: 'line' },
-        label: ' Test Details ',
+        label: ` ${WINDOW_TITLES.TEST_DETAILS} `,
         style: { border: { fg: COLORS.BLUR }, label: { fg: COLORS.BLUR } },
         content: 'Select a test from the list on the left.',
         scrollable: true,
@@ -85,7 +103,7 @@ export const renderUI = () => {
         bottom: 0,
         width: '100%',
         height: 1,
-        content: DEFAULT_NAV_MESSAGE,
+        content: STATUS_BAR_MESSAGES.ON_LIST,
         style: { bg: 'blue' },
     });
 
@@ -128,14 +146,14 @@ export const displayTestDetails = (tests: Test[], testIndex: number, detailBox: 
     if (!test) return;
     let outcomeText: string;
     switch (test.outcome) {
-        case 'passed':
-            outcomeText = chalk.green.bold('PASSED');
+        case TEST_OUTCOMES.PASSED:
+            outcomeText = chalk.green.bold(TEST_OUTCOMES.PASSED.toUpperCase());
             break;
-        case 'failed':
-            outcomeText = chalk.red.bold('FAILED');
+        case TEST_OUTCOMES.FAILED:
+            outcomeText = chalk.red.bold(TEST_OUTCOMES.FAILED.toUpperCase());
             break;
-        case 'skipped':
-            outcomeText = chalk.yellow.bold('SKIPPED');
+        case TEST_OUTCOMES.SKIPPED:
+            outcomeText = chalk.yellow.bold(TEST_OUTCOMES.SKIPPED.toUpperCase());
             break;
         default:
             outcomeText = chalk.gray.bold('UNKNOWN');
@@ -148,8 +166,8 @@ export const displayTestDetails = (tests: Test[], testIndex: number, detailBox: 
     const duration = test.call?.duration ?? test.setup.duration;
     details += chalk.bold.cyan('Duration: ') + `${duration.toFixed(4)}s\n`;
     details += chalk.gray(' ' + '─'.repeat((detailBox.width as number) - BOX_WIDTH_CHARS_CORRECTION_OFFSET) + '\n\n');
-    if (test.outcome === 'skipped') {
-        details += chalk.bold.yellow('[ SKIP REASON ]\n');
+    if (test.outcome === TEST_OUTCOMES.SKIPPED) {
+        details += chalk.bold.yellow(`${DETAIL_SECTION_TITLES.SKIP_REASON}\n`);
         if (test.setup.longrepr && typeof test.setup.longrepr === 'string') {
             const match = test.setup.longrepr.match(/\('(.*)', (\d+), '(.*)'\)/);
             if (match) {
@@ -165,21 +183,21 @@ export const displayTestDetails = (tests: Test[], testIndex: number, detailBox: 
         );
     }
     if (test.call?.stdout) {
-        details += chalk.bold.yellow('[ STDOUT ]\n');
+        details += chalk.bold.yellow(`${DETAIL_SECTION_TITLES.STDOUT}\n`);
         details += chalk.gray(test.call.stdout) + '\n';
         details += chalk.gray(
             ' ' + '─'.repeat((detailBox.width as number) - BOX_WIDTH_CHARS_CORRECTION_OFFSET) + '\n\n'
         );
     }
     if (test.call?.stderr) {
-        details += chalk.bold.yellow('[ STDERR ]\n');
+        details += chalk.bold.yellow(`${DETAIL_SECTION_TITLES.STDERR}\n`);
         details += chalk.gray(test.call.stderr) + '\n';
         details += chalk.gray(
             ' ' + '─'.repeat((detailBox.width as number) - BOX_WIDTH_CHARS_CORRECTION_OFFSET) + '\n\n'
         );
     }
-    if (test.outcome === 'failed' && test.call?.longrepr) {
-        details += chalk.bold.yellow('[ TRACEBACK & DIFF ]\n');
+    if (test.outcome === TEST_OUTCOMES.FAILED && test.call?.longrepr) {
+        details += chalk.bold.yellow(`${DETAIL_SECTION_TITLES.TRACEBACK_AND_DIFF}\n`);
         const traceback =
             typeof test.call.longrepr === 'string' ? test.call.longrepr : test.call.longrepr.reprcrash.message;
         const formattedTraceback = traceback
@@ -205,6 +223,19 @@ export const setUpEvents = (uiComponents: UIComponents) => {
     let currentSelectedTest: Test | null = null;
     let keySequenceState = ''; // State for key chords
 
+    const focusDetails = () => {
+        detailBox.focus();
+        detailBox.scrollTo(0);
+        statusBar.setContent(STATUS_BAR_MESSAGES.ON_DETAIL);
+        screen.render();
+    };
+
+    const focusTestList = () => {
+        testList.focus();
+        statusBar.setContent(STATUS_BAR_MESSAGES.ON_LIST);
+        screen.render();
+    };
+
     // --- Manejador de eventos para la lista de tests ---
     testList.on('select item', (item: string, index: number) => {
         const tests = getTests();
@@ -212,17 +243,17 @@ export const setUpEvents = (uiComponents: UIComponents) => {
         displayTestDetails(tests, index, detailBox);
         // Reset key sequence state when selection changes
         keySequenceState = '';
-        statusBar.setContent(DEFAULT_NAV_MESSAGE);
+        statusBar.setContent(STATUS_BAR_MESSAGES.ON_LIST);
         screen.render();
     });
 
-    testList.key(['right', 'enter'], () => detailBox.focus());
+    testList.key(['right', 'enter'], () => focusDetails());
     testList.key('s', () => {
         const tests = getTests();
         const currentIndex = testList.selected;
-        let nextSkippedIndex = tests.findIndex((test, i) => i > currentIndex && test.outcome === 'skipped');
+        let nextSkippedIndex = tests.findIndex((test, i) => i > currentIndex && test.outcome === TEST_OUTCOMES.SKIPPED);
         if (nextSkippedIndex === -1) {
-            nextSkippedIndex = tests.findIndex((test) => test.outcome === 'skipped');
+            nextSkippedIndex = tests.findIndex((test) => test.outcome === TEST_OUTCOMES.SKIPPED);
         }
         if (nextSkippedIndex !== -1) {
             testList.select(nextSkippedIndex);
@@ -231,9 +262,9 @@ export const setUpEvents = (uiComponents: UIComponents) => {
     testList.key('f', () => {
         const tests = getTests();
         const currentIndex = testList.selected;
-        let nextFailedIndex = tests.findIndex((test, i) => i > currentIndex && test.outcome === 'failed');
+        let nextFailedIndex = tests.findIndex((test, i) => i > currentIndex && test.outcome === TEST_OUTCOMES.FAILED);
         if (nextFailedIndex === -1) {
-            nextFailedIndex = tests.findIndex((test) => test.outcome === 'failed');
+            nextFailedIndex = tests.findIndex((test) => test.outcome === TEST_OUTCOMES.FAILED);
         }
         if (nextFailedIndex !== -1) {
             testList.select(nextFailedIndex);
@@ -242,17 +273,28 @@ export const setUpEvents = (uiComponents: UIComponents) => {
     testList.key('p', () => {
         const tests = getTests();
         const currentIndex = testList.selected;
-        let nextPassedIndex = tests.findIndex((test, i) => i > currentIndex && test.outcome === 'passed');
+        let nextPassedIndex = tests.findIndex((test, i) => i > currentIndex && test.outcome === TEST_OUTCOMES.PASSED);
         if (nextPassedIndex === -1) {
-            nextPassedIndex = tests.findIndex((test) => test.outcome === 'passed');
+            nextPassedIndex = tests.findIndex((test) => test.outcome === TEST_OUTCOMES.PASSED);
         }
         if (nextPassedIndex !== -1) {
             testList.select(nextPassedIndex);
         }
     });
+    testList.key('C-g', async () => {
+        const tests = getTests();
+        const currentIndex = testList.selected;
+        const currentSelectedTest = tests[currentIndex];
+        if (!currentSelectedTest) return;
+        const filePath = currentSelectedTest.nodeid.split('::')[0] + ':' + ((currentSelectedTest.lineno ?? 0) + 1);
+        await $`zeditor ${filePath}`.quiet();
+        return screen.destroy();
+    });
 
     // --- Manejadores de eventos para la caja de detalles ---
-    detailBox.key(['left', 'escape'], () => testList.focus());
+    detailBox.key(['left', 'escape'], () => {
+        focusTestList();
+    });
 
     // Handle copy key sequences
     detailBox.on('keypress', (ch: any, key: any) => {
@@ -292,10 +334,16 @@ export const setUpEvents = (uiComponents: UIComponents) => {
         // Resetear el estado y restaurar la barra de estado después de un momento
         keySequenceState = '';
         setTimeout(() => {
-            statusBar.setContent(DEFAULT_NAV_MESSAGE);
+            statusBar.setContent(STATUS_BAR_MESSAGES.ON_COPY_MODE);
             screen.render();
         }, 1500);
 
+        screen.render();
+    });
+
+    detailBox.key('C-k', () => {
+        keySequenceState = 'ctrl-k';
+        statusBar.setContent(STATUS_BAR_MESSAGES.ON_OPEN_MODE);
         screen.render();
     });
 
@@ -341,7 +389,7 @@ export const setUpEvents = (uiComponents: UIComponents) => {
         // Resetear el estado y restaurar la barra de estado después de un momento
         keySequenceState = '';
         setTimeout(() => {
-            statusBar.setContent(DEFAULT_NAV_MESSAGE);
+            statusBar.setContent(STATUS_BAR_MESSAGES.ON_DETAIL);
             screen.render();
         }, 1500);
 
@@ -351,15 +399,17 @@ export const setUpEvents = (uiComponents: UIComponents) => {
     // Manejador para la primera tecla de la secuencia (Ctrl+K)
     detailBox.key('C-o', () => {
         keySequenceState = 'ctrl-o';
-        statusBar.setContent(
-            'Open mode: Press ' +
-                chalk.bold('Ctrl+O') +
-                ' (stdout), ' +
-                chalk.bold('Ctrl+E') +
-                ' (stderr), or ' +
-                chalk.bold('Ctrl+B') +
-                ' (traceback)'
-        );
+        statusBar.setContent(STATUS_BAR_MESSAGES.ON_OPEN_MODE);
+        screen.render();
+    });
+
+    detailBox.key('pageup', () => {
+        detailBox.scroll(-detailBox.height as number);
+        screen.render();
+    });
+
+    detailBox.key('pagedown', () => {
+        detailBox.scroll(detailBox.height as number);
         screen.render();
     });
 
@@ -380,13 +430,13 @@ const onTestsChange = (uiComponents: UIComponents) => {
     const testItems = tests.map((test) => {
         let statusIcon: string;
         switch (test.outcome) {
-            case 'passed':
+            case TEST_OUTCOMES.PASSED:
                 statusIcon = chalk.green('✓');
                 break;
-            case 'failed':
+            case TEST_OUTCOMES.FAILED:
                 statusIcon = chalk.red('✗');
                 break;
-            case 'skipped':
+            case TEST_OUTCOMES.SKIPPED:
                 statusIcon = chalk.yellow('»');
                 break;
             default:

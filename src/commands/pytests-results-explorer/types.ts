@@ -1,3 +1,9 @@
+export const TEST_OUTCOMES = {
+    PASSED: 'passed',
+    FAILED: 'failed',
+    SKIPPED: 'skipped',
+} as const;
+
 export interface TestReport {
     created: number;
     duration: number;
@@ -18,7 +24,7 @@ export interface TestSummary {
 export interface Test {
     nodeid: string;
     lineno?: number;
-    outcome: 'passed' | 'failed' | 'skipped';
+    outcome: (typeof TEST_OUTCOMES)[keyof typeof TEST_OUTCOMES];
     keywords: string[];
     setup: TestPhase;
     call?: TestPhase;
@@ -26,7 +32,7 @@ export interface Test {
 }
 
 export interface TestPhase {
-    outcome: 'passed' | 'failed' | 'skipped';
+    outcome: (typeof TEST_OUTCOMES)[keyof typeof TEST_OUTCOMES];
     duration: number;
     stdout?: string;
     stderr?: string;
