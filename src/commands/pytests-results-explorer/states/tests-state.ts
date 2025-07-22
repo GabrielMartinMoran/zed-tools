@@ -1,4 +1,4 @@
-import type { Test } from './types';
+import type { Test } from '../types';
 
 interface TestsState {
     tests: Test[];
