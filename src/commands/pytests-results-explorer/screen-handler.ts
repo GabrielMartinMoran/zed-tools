@@ -83,7 +83,7 @@ export const buildUI = () => {
             },
             label: ` ${WINDOW_TITLES.TEST_NAVIGATOR} `,
             keys: true,
-            vi: true,
+            vi: false,
             mouse: true,
             scrollable: true,
             scrollbar: { ch: ' ', track: { bg: 'grey' }, style: { bg: COLORS.BLUR } },
