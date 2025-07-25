@@ -32,7 +32,7 @@ const WINDOW_TITLES = {
 
 const STATUS_BAR_MESSAGES = {
     ON_LIST: `${key(`[${WINDOW_TITLES.TEST_NAVIGATOR}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('Enter')}/${key('→')}: Focus Test Details | ${key('F')}/${key('P')}/${key('S')}: Jump to Next Failed/Passed/Skipped | ${key('Ctrl+G')}: Go to Test Definition | ${key('Esc')}/${key('Q')}: Exit`,
-    ON_DETAIL: `${key(`[${WINDOW_TITLES.TEST_DETAILS}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('PgUp')}/${key('PgDn')}: Fast Navigate | ${key('Ctrl+K')}: Copy Options | ${key('Ctrl+O')}: Open Options | ${key('Esc')}/${key('←')}: Focus List | ${key('Q')}: Exit`,
+    ON_DETAIL: `${key(`[${WINDOW_TITLES.TEST_DETAILS}]`)} ${key('↑')}/${key('↓')}: Navigate | ${key('PgUp')}/${key('PgDn')}: Fast Navigate | ${key('Ctrl+K')}: Copy Options | ${key('Ctrl+O')}: Open Options | ${key('Ctrl+G')}: Go to Test Definition | ${key('Esc')}/${key('←')}: Focus List | ${key('Q')}: Exit`,
     ON_COPY_MODE: `${key('[Copy Mode]')} ${key('Ctrl+O')}: Copy STDOUT | ${key('Ctrl+E')}: Copy STDERR | ${key('Ctrl+B')}: Copy Traceback | ${key('Esc')}: Exit Copy Mode`,
     ON_OPEN_MODE: `${key('[Open Mode]')} ${key('Ctrl+D')}: Open Diff | ${key('Ctrl+O')}: Open STDOUT | ${key('Ctrl+E')}: Open STDERR | ${key('Ctrl+B')}: Open Traceback | ${key('Esc')}: Exit Open Mode`,
 };
@@ -295,15 +295,18 @@ export const buildUI = () => {
                 testList.select(nextPassedIndex);
             }
         });
-        testList.key('C-g', async () => {
-            const tests = getTests();
-            const currentIndex = testList.selected;
-            const currentSelectedTest = tests[currentIndex];
-            if (!currentSelectedTest) return;
-            const filePath = currentSelectedTest.nodeid.split('::')[0] + ':' + ((currentSelectedTest.lineno ?? 0) + 1);
-            await $`zeditor ${filePath}`.quiet();
-            return destroyScreen();
-        });
+
+        for (const element of [testList, detailBox]) {
+            element.key('C-g', async () => {
+                const tests = getTests();
+                const currentIndex = testList.selected;
+                const currentSelectedTest = tests[currentIndex];
+                if (!currentSelectedTest) return;
+                const filePath =
+                    currentSelectedTest.nodeid.split('::')[0] + ':' + ((currentSelectedTest.lineno ?? 0) + 1);
+                await $`zeditor ${filePath}`.quiet();
+            });
+        }
 
         // --- Manejadores de eventos para la caja de detalles ---
         detailBox.key(['left', 'escape'], () => {
